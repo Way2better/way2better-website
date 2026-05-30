@@ -1,0 +1,1 @@
+import{j as s}from"./index-UadycvD_.js";function o({children:n,className:t="",id:e}){return s.jsx("section",{id:e,className:`section-padding ${t}`,children:s.jsx("div",{className:"container-custom",children:n})})}export{o as S};

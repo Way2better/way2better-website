@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Allow: /index.html
+Allow: /about.html
+Allow: /products.html
+Allow: /pricing.html
+Allow: /feedback.html
+
+Sitemap: https://way2better.com/sitemap.xml
