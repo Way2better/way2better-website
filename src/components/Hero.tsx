@@ -3,6 +3,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, Bot, CalendarDays, LineChart, Target, Briefcase, FileText } from 'lucide-react';
 import { GradientBackground } from './GradientBackground';
 import { ParticleBackground } from './ParticleBackground';
+import { CONFIG } from '../config/urls';
 
 export function Hero() {
   const { scrollY } = useScroll();
@@ -102,12 +103,12 @@ export function Hero() {
             {/* Animated Glow Border */}
             <div className="absolute inset-[-200%] animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_0deg_at_50%_50%,transparent_0%,#BEF264_25%,transparent_50%,#BEF264_75%,transparent_100%)] opacity-30 group-hover/btn:opacity-100 group-hover/btn:animate-[spin_2s_linear_infinite] transition-all" />
 
-            <button className="group relative z-10 flex items-center gap-3 bg-white text-slate-950 pl-4 pr-2 py-1.5 rounded-full font-bold hover:bg-slate-50 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+            <a href={CONFIG.REGISTER_URL} className="group relative z-10 flex items-center gap-3 bg-white text-slate-950 pl-4 pr-2 py-1.5 rounded-full font-bold hover:bg-slate-50 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]">
               Start Your Journey
               <div className="bg-primary-300 text-slate-950 p-2 rounded-full group-hover:bg-primary-400 transition-colors">
                 <ArrowRight className="w-4 h-4 animate-bounce-x" />
               </div>
-            </button>
+            </a>
           </div>
         </motion.div>
 

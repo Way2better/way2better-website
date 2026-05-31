@@ -1,5 +1,6 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { Section } from './Section';
+import { CONFIG } from '../config/urls';
 
 export function FinalCTA() {
   return (
@@ -28,14 +29,14 @@ export function FinalCTA() {
             {/* Animated Glow Border */}
             <div className="absolute inset-[-200%] animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_0deg_at_50%_50%,transparent_0%,#059669_25%,transparent_50%,#059669_75%,transparent_100%)] opacity-30 group-hover/btn:opacity-100 group-hover/btn:animate-[spin_2s_linear_infinite] transition-all" />
 
-            <button className="group relative z-10 flex items-center justify-center gap-3 bg-[#16382D] text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-[#0A1A14] shadow-lg transition-all">
+            <a href={CONFIG.REGISTER_URL} className="group relative z-10 flex items-center justify-center gap-3 bg-[#16382D] text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-[#0A1A14] shadow-lg transition-all">
               Get Started Free
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
+            </a>
           </div>
-          <button className="flex items-center justify-center gap-2 px-8 py-4 rounded-full font-bold text-lg bg-white border border-[#16382D]/20 text-[#16382D] hover:bg-[#E6EFEA] transition-all shadow-sm">
+          <a href="/pricing.html" className="flex items-center justify-center gap-2 px-8 py-4 rounded-full font-bold text-lg bg-white border border-[#16382D]/20 text-[#16382D] hover:bg-[#E6EFEA] transition-all shadow-sm">
             View Pricing
-          </button>
+          </a>
         </div>
 
         <div className="inline-flex items-center gap-4 px-6 py-4 bg-white border border-[#16382D]/10 rounded-full text-sm text-[#4A635B] shadow-sm">

@@ -11,6 +11,7 @@
   <meta name="theme-color" content="#bef264">
   <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
   <script src="/assets/js/pwa-manager.js" defer></script>
+  <script src="/assets/js/config.js"></script>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -720,6 +721,8 @@
       padding-top: 1rem;
     }
   </style>
+  <!-- Razorpay Standard Web Checkout SDK -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 
 <body class="dark flex flex-col min-h-screen">
@@ -783,7 +786,7 @@
     <div id="menu-sidebar"
       class="fixed inset-y-0 right-0 w-[280px] h-full bg-black/40 border-l border-white/10 backdrop-blur-2xl shadow-2xl flex flex-col p-8 transform translate-x-full transition-transform duration-300 overflow-y-auto">
       <div class="flex items-center justify-between mb-12">
-        <span class="text-xl font-black text-gradient-premium">Menu v8</span>
+        <span class="text-xl font-black text-gradient-premium">Menu</span>
         <button id="menu-close" class="p-2 text-slate-400 hover:text-white transition-colors"><i
             class="fas fa-times"></i></button>
       </div>
@@ -1360,6 +1363,10 @@
   </footer>
 
   <script>
+    const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:5500/api'
+      : '/api';
+
     function handleNewsletterSubscribe(event, form) {
       event.preventDefault();
       const emailInput = form.querySelector('input[type="email"]');
@@ -1499,43 +1506,131 @@
       const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
       if (!currentUser) {
         alert("Please login or create an account to subscribe.");
-        window.location.href = `/login.html?redirect=pricing.html`;
+        window.location.href = `${window.CONFIG.LOGIN_URL}?redirect=${encodeURIComponent(window.location.href)}`;
         return;
       }
       if (planName === 'free') { alert("You are already on the Free Trial. If it's expired, please select a paid plan."); return; }
       if (planName === 'enterprise') { alert("Redirecting to contact sales..."); window.location.href = "mailto:sales@way2better.com"; return; }
 
-      const confirmPayment = confirm(`[DEMO RAZORPAY STUB]\n\nPlan: ${planName.toUpperCase()}\nAmount: ₹${amount}\n\nClick OK to simulate a successful payment.`);
-      if (confirmPayment) handlePaymentSuccess(currentUser.id || currentUser.userId, planName, amount);
-    }
-
-    async function handlePaymentSuccess(userId, planName, price) {
       try {
-        const startDate = new Date();
-        const endDate = new Date();
-        if (isYearly) { endDate.setFullYear(endDate.getFullYear() + 1); }
-        else { endDate.setMonth(endDate.getMonth() + 1); }
-
-        const res = await fetch('/api/subscription', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, planName, price, startDate: startDate.toISOString(), endDate: endDate.toISOString() })
+        // 1. Create order on the backend (amount converted to paise)
+        const orderRes = await fetch(`${BACKEND_URL}/create-order`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            amount: amount * 100, // INR to Paise
+            currency: 'INR',
+            receipt: `rcpt_${currentUser.id || currentUser.userId || 'usr'}_${Date.now()}`
+          })
         });
-        const data = await res.json();
-        if (data.success) {
-          const user = JSON.parse(localStorage.getItem('currentUser'));
-          user.isSubscribed = true; user.trialExpired = false;
-          localStorage.setItem('currentUser', JSON.stringify(user));
-          alert("Payment successful! Redirecting to Dashboard.");
-          window.location.href = `/myaccount.html`;
-        } else { alert("Payment received, but failed to update subscription status. Please contact support."); }
-      } catch (err) { console.error("Payment error:", err); alert("An error occurred. Please contact support."); }
+
+        if (!orderRes.ok) {
+          const errorData = await orderRes.json();
+          throw new Error(errorData.message || 'Failed to create order on server.');
+        }
+
+        const orderData = await orderRes.json();
+
+        // 2. Fetch public Razorpay Key ID dynamically
+        const keyRes = await fetch(`${BACKEND_URL}/razorpay-key`);
+        if (!keyRes.ok) {
+          throw new Error('Failed to retrieve Razorpay Key configuration from server.');
+        }
+        const { keyId } = await keyRes.json();
+
+        // 3. Launch Razorpay Checkout Modal
+        const options = {
+          key: keyId,
+          amount: orderData.amount,
+          currency: orderData.currency,
+          name: "Way2Better",
+          description: `Subscription: ${planName.toUpperCase()} Plan`,
+          image: "/logo.png",
+          order_id: orderData.order_id,
+          handler: async function (response) {
+            try {
+              const startDate = new Date();
+              const endDate = new Date();
+              if (isYearly) {
+                endDate.setFullYear(endDate.getFullYear() + 1);
+              } else {
+                endDate.setMonth(endDate.getMonth() + 1);
+              }
+
+              // 4. Send payment signatures to verify-payment endpoint
+              const verifyRes = await fetch(`${BACKEND_URL}/verify-payment`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_signature: response.razorpay_signature,
+                  userId: currentUser.id || currentUser.userId,
+                  planName: planName,
+                  price: amount,
+                  startDate: startDate.toISOString(),
+                  endDate: endDate.toISOString()
+                })
+              });
+
+              const verifyData = await verifyRes.json();
+
+              if (verifyRes.ok && verifyData.success) {
+                // Update local storage status
+                const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                user.isSubscribed = true;
+                user.trialExpired = false;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                
+                alert("Payment verified and subscription activated successfully! Redirecting to dashboard.");
+                window.location.href = `/myaccount.html`;
+              } else {
+                alert("Payment verification failed: " + (verifyData.message || 'Unknown verification error.'));
+              }
+            } catch (verifyErr) {
+              console.error('Signature verification call failed:', verifyErr);
+              alert("Server error verifying signature. Please contact support.");
+            }
+          },
+          prefill: {
+            name: currentUser.name || currentUser.full_name || "",
+            email: currentUser.email || "",
+            contact: currentUser.phone || currentUser.contact_number || ""
+          },
+          theme: {
+            color: "#65a30d"
+          },
+          modal: {
+            ondismiss: function () {
+              console.log("Razorpay Checkout Modal dismissed by customer.");
+            }
+          }
+        };
+
+        const rzp = new window.Razorpay(options);
+
+        rzp.on('payment.failed', function (response) {
+          console.error("Payment transaction failed:", response.error);
+          alert(`Payment failed: ${response.error.description || 'Transaction declined.'}`);
+        });
+
+        rzp.open();
+
+      } catch (err) {
+        console.error('Razorpay Checkout error:', err);
+        alert('An error occurred during checkout setup: ' + err.message);
+      }
     }
 
     async function checkActiveSubscription() {
       const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
       if (!currentUser) return;
       try {
-        const res = await fetch(`/api/subscription/${currentUser.id || currentUser.userId}`);
+        const res = await fetch(`${BACKEND_URL}/subscription/${currentUser.id || currentUser.userId}`);
         const data = await res.json();
         let activePlan = null;
         if (data.success && data.data && new Date(data.data.endDate) > new Date()) {
